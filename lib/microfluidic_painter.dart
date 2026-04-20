@@ -1,104 +1,200 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'theme_config.dart';
 
-class MicrofluidicPainter extends CustomPainter {
-  final DateTime dateTime;
-  final FluidTheme theme;
-  final double animationValue;
+class MicrofluidicAnalogPainter extends CustomPainter {
+  final DateTime time;
+  final ClockTheme theme;
+  final double shimmerOffset; // 0..1 animated shimmer position
 
-  MicrofluidicPainter({
-    required this.dateTime,
+  const MicrofluidicAnalogPainter({
+    required this.time,
     required this.theme,
-    required this.animationValue,
+    required this.shimmerOffset,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = min(size.width, size.height) / 2;
-    final strokeWidth = radius * 0.08;
+    final radius = math.min(size.width, size.height) / 2 - 8;
 
-    // Draw background etched channel ring
-    final channelPaint = Paint()
-      ..color = const Color(0xFF1A1A1A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth + 4;
-    canvas.drawCircle(center, radius - strokeWidth, channelPaint);
-
-    // Draw hour markers (bubbles)
-    final bubblePaint = Paint()
-      ..color = theme.accent.withOpacity(0.5)
-      ..style = PaintingStyle.fill;
-    
-    for (int i = 0; i < 12; i++) {
-      final angle = i * 30 * pi / 180;
-      final offset = Offset(
-        center.dx + (radius - strokeWidth) * cos(angle),
-        center.dy + (radius - strokeWidth) * sin(angle),
-      );
-      canvas.drawCircle(offset, 4, bubblePaint);
-    }
-
-    // Draw Hands
-    _drawHand(canvas, center, radius * 0.5, (dateTime.hour % 12 + dateTime.minute / 60) * 30, strokeWidth * 1.5, theme, false);
-    _drawHand(canvas, center, radius * 0.7, (dateTime.minute + dateTime.second / 60) * 6, strokeWidth, theme, false);
-    _drawHand(canvas, center, radius * 0.85, dateTime.second * 6, strokeWidth * 0.5, theme, true);
-
-    // Center pivot (pressurized node)
-    final pivotPaint = Paint()
-      ..color = theme.accent
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-    canvas.drawCircle(center, 8, pivotPaint);
-    
-    final pivotInnerPaint = Paint()..color = theme.primary;
-    canvas.drawCircle(center, 4, pivotInnerPaint);
+    _drawFace(canvas, center, radius);
+    _drawHourMarkers(canvas, center, radius);
+    _drawHands(canvas, center, radius);
+    _drawCenterNode(canvas, center);
   }
 
-  void _drawHand(Canvas canvas, Offset center, double length, double angleDegrees, double width, FluidTheme theme, bool isSecondHand) {
-    final angle = (angleDegrees - 90) * pi / 180;
-    final end = Offset(
-      center.dx + length * cos(angle),
-      center.dy + length * sin(angle),
-    );
-
-    // Tube background (etched channel)
-    final tubeBasePaint = Paint()
-      ..color = const Color(0xFF1A1A1A)
-      ..strokeWidth = width + 4
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(center, end, tubeBasePaint);
-
-    // Fluid glow
-    final glowPaint = Paint()
-      ..color = theme.primary.withOpacity(0.3)
-      ..strokeWidth = width + 2
-      ..strokeCap = StrokeCap.round
+  void _drawFace(Canvas canvas, Offset center, double radius) {
+    // Outer ring — channel groove
+    final outerPaint = Paint()
+      ..color = theme.sunkColor.withOpacity(0.9)
       ..style = PaintingStyle.stroke
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-    canvas.drawLine(center, end, glowPaint);
+      ..strokeWidth = radius * 0.09;
 
-    // Fluid fill with shimmer/flow
-    final fluidPaint = Paint()
-      ..strokeWidth = width
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(center, radius, outerPaint);
 
-    final gradient = LinearGradient(
-      colors: [theme.accent, theme.primary, theme.accent],
-      stops: const [0.0, 0.5, 1.0],
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-      transform: GradientRotation(isSecondHand ? animationValue * 2 * pi : angle),
+    // Inner ring highlight
+    final innerRingPaint = Paint()
+      ..color = theme.fluidColor.withOpacity(0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.035;
+
+    canvas.drawCircle(center, radius - radius * 0.045, innerRingPaint);
+    canvas.drawCircle(center, radius + radius * 0.045, innerRingPaint);
+  }
+
+  void _drawHourMarkers(Canvas canvas, Offset center, double radius) {
+    final markerR = radius * 0.86;
+    for (int i = 0; i < 12; i++) {
+      final angle = (i * 30 - 90) * math.pi / 180;
+      final dx = center.dx + markerR * math.cos(angle);
+      final dy = center.dy + markerR * math.sin(angle);
+
+      final isQuarter = i % 3 == 0;
+      final dotR = isQuarter ? radius * 0.048 : radius * 0.028;
+
+      // Sunken channel hole
+      final holePaint = Paint()
+        ..color = theme.sunkColor
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(dx, dy), dotR, holePaint);
+
+      // Fluid bubble inside
+      final bubblePaint = Paint()
+        ..color = theme.fluidColor.withOpacity(isQuarter ? 0.9 : 0.6)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(dx, dy), dotR * 0.65, bubblePaint);
+
+      // Highlight
+      final hlPaint = Paint()
+        ..color = theme.surfaceColor.withOpacity(0.5)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(
+        Offset(dx - dotR * 0.18, dy - dotR * 0.2),
+        dotR * 0.25,
+        hlPaint,
+      );
+    }
+  }
+
+  void _drawHands(Canvas canvas, Offset center, double radius) {
+    final seconds = time.second + time.millisecond / 1000;
+    final minutes = time.minute + seconds / 60;
+    final hours = (time.hour % 12) + minutes / 60;
+
+    // Hour hand
+    _drawTubeHand(
+      canvas,
+      center,
+      hours * 30 - 90,
+      radius * 0.52,
+      radius * 0.045,
+      theme.fluidColor,
+      shimmerOffset,
     );
 
-    fluidPaint.shader = gradient.createShader(Rect.fromPoints(center, end));
-    canvas.drawLine(center, end, fluidPaint);
+    // Minute hand
+    _drawTubeHand(
+      canvas,
+      center,
+      minutes * 6 - 90,
+      radius * 0.73,
+      radius * 0.032,
+      theme.fluidColor.withOpacity(0.9),
+      (shimmerOffset + 0.33) % 1.0,
+    );
+
+    // Second hand — thinner, faster shimmer
+    _drawTubeHand(
+      canvas,
+      center,
+      seconds * 6 - 90,
+      radius * 0.82,
+      radius * 0.018,
+      theme.surfaceColor,
+      (shimmerOffset + 0.66) % 1.0,
+    );
+  }
+
+  void _drawTubeHand(
+      Canvas canvas,
+      Offset center,
+      double angleDeg,
+      double length,
+      double thickness,
+      Color fluidColor,
+      double shimmer,
+      ) {
+    final angle = angleDeg * math.pi / 180;
+    final tip = Offset(
+      center.dx + length * math.cos(angle),
+      center.dy + length * math.sin(angle),
+    );
+
+    // Draw tube outer (dark channel)
+    final tubePaint = Paint()
+      ..color = theme.sunkColor.withOpacity(0.8)
+      ..strokeWidth = thickness * 2.2
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(center, tip, tubePaint);
+
+    // Draw fluid fill inside tube
+    final fluidPaint = Paint()
+      ..color = fluidColor
+      ..strokeWidth = thickness * 1.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(center, tip, fluidPaint);
+
+    // Draw shimmer highlight traveling along tube
+    final shimmerPos = shimmer;
+    final shimmerStart = Offset(
+      center.dx + length * shimmerPos * 0.85 * math.cos(angle),
+      center.dy + length * shimmerPos * 0.85 * math.sin(angle),
+    );
+    final shimmerEnd = Offset(
+      center.dx + length * (shimmerPos * 0.85 + 0.12) * math.cos(angle),
+      center.dy + length * (shimmerPos * 0.85 + 0.12) * math.sin(angle),
+    );
+
+    final shimmerPaint = Paint()
+      ..color = theme.surfaceColor.withOpacity(0.65)
+      ..strokeWidth = thickness * 0.7
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(shimmerStart, shimmerEnd, shimmerPaint);
+  }
+
+  void _drawCenterNode(Canvas canvas, Offset center) {
+    final nodeR = 10.0;
+
+    // Outer dark channel ring
+    final outerPaint = Paint()
+      ..color = theme.sunkColor
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, nodeR, outerPaint);
+
+    // Fluid fill
+    final fluidPaint = Paint()
+      ..color = theme.fluidColor
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, nodeR * 0.72, fluidPaint);
+
+    // Highlight
+    final hlPaint = Paint()
+      ..color = theme.surfaceColor.withOpacity(0.7)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(
+      Offset(center.dx - nodeR * 0.2, center.dy - nodeR * 0.25),
+      nodeR * 0.28,
+      hlPaint,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant MicrofluidicPainter oldDelegate) {
-    return oldDelegate.dateTime != dateTime || oldDelegate.animationValue != animationValue || oldDelegate.theme != theme;
-  }
+  bool shouldRepaint(MicrofluidicAnalogPainter old) =>
+      old.time != time ||
+          old.theme != theme ||
+          old.shimmerOffset != shimmerOffset;
 }

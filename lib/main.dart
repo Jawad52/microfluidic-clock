@@ -4,13 +4,11 @@ import 'clock_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Set preferred orientations to portrait and hide status bar for immersive feel
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    systemNavigationBarColor: Color(0xFF0D0D0D),
-  ));
-  
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+    DeviceOrientation.portraitUp,
+  ]);
   runApp(const MicrofluidicClockApp());
 }
 
@@ -23,9 +21,8 @@ class MicrofluidicClockApp extends StatelessWidget {
       title: 'Microfluidic Clock',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFFF6600)),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF0D0D0D),
       ),
       home: const ClockScreen(),
     );
